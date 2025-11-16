@@ -1,25 +1,25 @@
-Instrument,Ticker,Asset_Class,Description,Notes
-EUR,EURUSD=X,Currency,EUR/USD Currency Pair,Real-time exchange rate
-USD,^DXY,Index,US Dollar Index,Broad USD strength measure
-GBP,GBPUSD=X,Currency,GBP/USD Currency Pair,Real-time exchange rate
-EUREQUITY,^STOXX,Index,Stoxx Europe 600,Broad European stock market exposure
-USDEQUITY,^GSPC,Index,S&P 500 Index,US large-cap equity benchmark
-EURSOV,VGSHX,Fund,Vanguard European Bond Fund,European sovereign bonds proxy
-EURCORP,VCIT,Fund,Vanguard Intermediate-Term Corporate Bond,European corporate equivalent
-USDSOV,IEF,ETF,iShares 7-10 Year Treasury Bond,US sovereign debt (medium-term)
-USDCORP,LQD,ETF,iShares Investment Grade Corporate Bond,US investment-grade corporate bonds
-InvestorAB,INVESTAB.ST,Stock,Investor AB,Swedish investment holding company
-EQUITYWATER,CGW,ETF,Calvert Water ETF,Water and utilities equity exposure
-CLEANENERGY,ICLN,ETF,iClimate Global Clean Energy ETF,Renewable energy and clean tech
-Gold,GLD,ETF,SPDR Gold Shares,Physical gold price tracking
-JPNEQUITY,^N225,Index,Nikkei 225 Index,Japanese large-cap equity
-EQUITYSWISS,EWL,ETF,iShares MSCI Switzerland ETF,Swiss equity market exposure
-EURUTILITIES,VEUR,ETF,Vanguard FTSE Developed Europe ETF,European dividend stocks including utilities
-USUTILITIES,XLU,ETF,Utilities Select Sector SPDR,US utilities sector
-Balancedfund,VBIAX,Fund,Vanguard Balanced Index Fund,Balanced equity/bond allocation
-equityfund,VTI,ETF,Vanguard Total Stock Market ETF,Broad US equity exposure
-RealEstateUS,VNQ,ETF,Vanguard Real Estate ETF,US REIT index
-RealEstateEurope,REM,ETF,iShares Global Real Estate ETF,European real estate exposure
-EURSOVInflation,VTIP,ETF,Vanguard Short-Term Treasury ETF,European inflation-linked proxy
-USDSOVInflation,TIP,ETF,iShares TIPS Bond ETF,US Treasury Inflation-Protected Securities
-Comodities,DBC,ETF,Commodities ETF,Broad commodity basket exposure
+Instrument,Ticker,Asset_Class,Description,Fallback_Ticker,Notes
+EUR,EURUSD=X,Currency,EUR/USD Currency Pair,EURUSD,Real-time exchange rate
+USD,DXY=F,Index,US Dollar Index,^DXY,Broad USD strength measure (Futures contract)
+GBP,GBPUSD=X,Currency,GBP/USD Currency Pair,GBPUSD,Real-time exchange rate
+EUREQUITY,STOXX50E.PA,Index,Stoxx Europe 600,^STOXX,Broad European stock market exposure (EuroStoxx 50)
+USDEQUITY,^GSPC,Index,S&P 500 Index,SPY,US large-cap equity benchmark
+EURSOV,VGSHX,Fund,Vanguard European Bond Fund,VCIT,European sovereign bonds proxy
+EURCORP,VCIT,Fund,Vanguard Intermediate-Term Corporate Bond,VGSHX,Corporate bonds (European equivalent)
+USDSOV,IEF,ETF,iShares 7-10 Year Treasury Bond,TLT,US sovereign debt (medium-term)
+USDCORP,LQD,ETF,iShares Investment Grade Corporate Bond,VCIT,US investment-grade corporate bonds
+InvestorAB,INVESTAB.ST,Stock,Investor AB,INVESTAB,Swedish investment company
+EQUITYWATER,CGW,ETF,Calvert Water ETF,PIO,Water and utilities equity exposure
+CLEANENERGY,ICLN,ETF,iClimate Global Clean Energy ETF,QCLN,Renewable energy and clean tech
+Gold,GLD,ETF,SPDR Gold Shares,IAU,Physical gold price tracking
+JPNEQUITY,^N225,Index,Nikkei 225 Index,EWJ,Japanese large-cap equity
+EQUITYSWISS,EWL,ETF,iShares MSCI Switzerland ETF,EIRL,Swiss equity market exposure
+EURUTILITIES,VEUR,ETF,Vanguard FTSE Developed Europe ETF,VEA,European dividend stocks including utilities
+USUTILITIES,XLU,ETF,Utilities Select Sector SPDR,VPU,US utilities sector
+Balancedfund,VBIAX,Fund,Vanguard Balanced Index Fund,AOR,Balanced equity/bond allocation
+equityfund,VTI,ETF,Vanguard Total Stock Market ETF,ITOT,Broad US equity exposure
+RealEstateUS,VNQ,ETF,Vanguard Real Estate ETF,SCHH,US REIT index
+RealEstateEurope,REM,ETF,iShares Global Real Estate ETF,GREAL,European real estate exposure
+EURSOVInflation,VTIP,ETF,Vanguard Short-Term Treasury ETF,SCHP,European inflation-linked proxy (using US TIPS)
+USDSOVInflation,TIP,ETF,iShares TIPS Bond ETF,VTIP,US Treasury Inflation-Protected Securities
+Comodities,DBC,ETF,Commodities ETF,GSG,Broad commodity basket exposure

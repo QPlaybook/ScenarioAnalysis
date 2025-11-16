@@ -41,7 +41,7 @@ load_ticker_mapping <- function(mapping_file = "yahoo_finance_mapping.csv") {
 # Fetch Historical Prices from Yahoo Finance
 ###################################################################
 
-fetch_yahoo_prices <- function(tickers, start_date = NULL, end_date = Sys.Date()) {
+fetch_yahoo_prices <- function(tickers_with_fallback, start_date = NULL, end_date = Sys.Date()) {
 
   # Default: 5 years ago
   if (is.null(start_date)) {
@@ -49,53 +49,96 @@ fetch_yahoo_prices <- function(tickers, start_date = NULL, end_date = Sys.Date()
   }
 
   cat("Fetching prices from", format(start_date, "%Y-%m-%d"),
-      "to", format(end_date, "%Y-%m-%d"), "\n")
+      "to", format(end_date, "%Y-%m-%d"), "\n\n")
 
   results <- list()
   failed_tickers <- c()
+  fallback_used <- c()
 
-  for (ticker in tickers) {
-    tryCatch({
-      cat("  Fetching", ticker, "...")
+  for (i in seq_len(nrow(tickers_with_fallback))) {
+    row <- tickers_with_fallback[i, ]
+    primary_ticker <- row$Ticker
+    fallback_ticker <- row$Fallback_Ticker
+    instrument <- row$Instrument
 
-      # Suppress the Yahoo Finance download messages
+    cat(sprintf("  %-20s [%s]... ", instrument, primary_ticker))
+
+    # Try primary ticker first
+    data <- NULL
+    used_ticker <- primary_ticker
+
+    data <- tryCatch({
       suppressMessages(
         suppressWarnings({
-          data <- getSymbols(ticker,
-                           from = start_date,
-                           to = end_date,
-                           auto.assign = FALSE,
-                           periodicity = "daily")
+          getSymbols(primary_ticker,
+                    from = start_date,
+                    to = end_date,
+                    auto.assign = FALSE,
+                    periodicity = "daily")
         })
       )
+    }, error = function(e) NULL)
 
-      # Extract closing prices
-      if (!is.null(data) && nrow(data) > 0) {
-        close_col <- grep("Close", colnames(data), ignore.case = TRUE)[1]
+    # If primary failed, try fallback
+    if (is.null(data) || nrow(data) == 0) {
+      if (!is.na(fallback_ticker)) {
+        cat(sprintf("(primary failed, trying fallback %s)... ", fallback_ticker))
 
-        if (!is.na(close_col)) {
+        data <- tryCatch({
+          suppressMessages(
+            suppressWarnings({
+              getSymbols(fallback_ticker,
+                        from = start_date,
+                        to = end_date,
+                        auto.assign = FALSE,
+                        periodicity = "daily")
+            })
+          )
+        }, error = function(e) NULL)
+
+        if (!is.null(data) && nrow(data) > 0) {
+          used_ticker <- fallback_ticker
+          fallback_used <- c(fallback_used, paste0(primary_ticker, " -> ", fallback_ticker))
+        }
+      }
+    }
+
+    # Process fetched data
+    if (!is.null(data) && nrow(data) > 0) {
+      close_col <- grep("Close", colnames(data), ignore.case = TRUE)[1]
+
+      if (!is.na(close_col)) {
+        # Validate data integrity
+        prices_raw <- data[, close_col]
+        prices_numeric <- as.numeric(prices_raw)
+
+        # Check for reasonable price values
+        valid_data <- !is.na(prices_numeric) & prices_numeric > 0
+
+        if (sum(valid_data) < 5) {
+          cat("FAILED (insufficient valid data)\n")
+          failed_tickers <- c(failed_tickers, primary_ticker)
+        } else {
           prices <- data[, close_col] %>%
             as_tibble(rownames = "Date") %>%
             rename(Price = 2) %>%
             mutate(Date = as.Date(Date),
-                   Ticker = ticker) %>%
-            select(Date, Ticker, Price)
+                   Ticker = used_ticker,
+                   Instrument = instrument) %>%
+            filter(!is.na(Price) & Price > 0) %>%
+            select(Date, Ticker, Instrument, Price)
 
-          results[[ticker]] <- prices
-          cat(" OK (", nrow(prices), "days)\n", sep = "")
-        } else {
-          cat(" FAILED (no Close price)\n")
-          failed_tickers <- c(failed_tickers, ticker)
+          results[[primary_ticker]] <- prices
+          cat(sprintf("OK (%d days)\n", nrow(prices)))
         }
       } else {
-        cat(" FAILED (no data)\n")
-        failed_tickers <- c(failed_tickers, ticker)
+        cat("FAILED (no Close price column)\n")
+        failed_tickers <- c(failed_tickers, primary_ticker)
       }
-
-    }, error = function(e) {
-      cat(" ERROR:", e$message, "\n")
-      failed_tickers <<- c(failed_tickers, ticker)
-    })
+    } else {
+      cat("FAILED (no data returned)\n")
+      failed_tickers <- c(failed_tickers, primary_ticker)
+    }
   }
 
   # Combine all results
@@ -105,14 +148,28 @@ fetch_yahoo_prices <- function(tickers, start_date = NULL, end_date = Sys.Date()
     all_prices <- tibble()
   }
 
+  cat("\n")
+
+  if (length(fallback_used) > 0) {
+    cat("Tickers using fallback:\n")
+    for (f in fallback_used) {
+      cat(sprintf("  %s\n", f))
+    }
+    cat("\n")
+  }
+
   if (length(failed_tickers) > 0) {
-    cat("\nWarning: Failed to fetch", length(failed_tickers), "tickers:\n")
-    cat("  ", paste(failed_tickers, collapse = ", "), "\n")
+    cat("Failed to fetch", length(failed_tickers), "tickers:\n")
+    for (f in failed_tickers) {
+      cat(sprintf("  %s\n", f))
+    }
+    cat("\n")
   }
 
   return(list(
     prices = all_prices,
-    failed = failed_tickers
+    failed = failed_tickers,
+    fallback_used = fallback_used
   ))
 }
 
@@ -124,10 +181,11 @@ classify_rich_cheap <- function(price_data) {
 
   cat("\nCalculating price statistics...\n")
 
-  # Group by ticker and calculate statistics
+  # Group by Instrument (not Ticker, since Ticker might be a fallback value)
   stats <- price_data %>%
-    group_by(Ticker) %>%
+    group_by(Instrument) %>%
     summarise(
+      Ticker = first(Ticker, na_rm = TRUE),  # Get the actual ticker used (might be fallback)
       Date_Min = min(Date, na.rm = TRUE),
       Date_Max = max(Date, na.rm = TRUE),
       Price_Min = min(Price, na.rm = TRUE),
@@ -202,9 +260,9 @@ get_price_analysis <- function(mapping_file = "yahoo_finance_mapping.csv",
 
   cat("\n")
 
-  # Step 4: Fetch prices
+  # Step 4: Fetch prices (with fallback support)
   price_result <- fetch_yahoo_prices(
-    tickers = mapping$Ticker,
+    tickers_with_fallback = mapping %>% select(Instrument, Ticker, Fallback_Ticker),
     start_date = start_date,
     end_date = end_date
   )
@@ -216,11 +274,16 @@ get_price_analysis <- function(mapping_file = "yahoo_finance_mapping.csv",
   # Step 5: Classify
   stats <- classify_rich_cheap(price_result$prices)
 
-  # Step 6: Join with mapping for readable output
+  # Step 6: Add Asset_Class from mapping
+  # stats already has Instrument and Ticker from classify_rich_cheap
+  mapping_summary <- mapping %>%
+    select(Instrument, Asset_Class) %>%
+    distinct()
+
   analysis <- stats %>%
     left_join(
-      mapping %>% select(Ticker, Instrument, Asset_Class),
-      by = "Ticker"
+      mapping_summary,
+      by = "Instrument"
     ) %>%
     select(
       Instrument, Ticker, Asset_Class,
